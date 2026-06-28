@@ -45,7 +45,7 @@ async def run(context: dict) -> str:
         ]
 
         headers = {
-            "User-Tool": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
             "Accept": "application/json",
         }
         VMP_SEARCH = "https://www.vinmonopolet.no/vmpws/v2/vmp/products/search"
@@ -97,7 +97,7 @@ async def run(context: dict) -> str:
             try:
                 async with session.get(
                     NUMBEO_URL,
-                    headers={"User-Tool": headers["User-Tool"]},
+                    headers={"User-Agent": headers["User-Agent"]},
                     timeout=aiohttp.ClientTimeout(total=15),
                 ) as resp:
                     if resp.status != 200:

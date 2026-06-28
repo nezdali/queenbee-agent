@@ -326,7 +326,7 @@ async def run(context: dict) -> str:
         return hits
 
     try:
-        async with aiohttp.ClientSession(headers={"User-Tool": UA}, timeout=TIMEOUT) as session:
+        async with aiohttp.ClientSession(headers={"User-Agent": UA}, timeout=TIMEOUT) as session:
             html, status = await fetch(session, URL)
             if not html or status != 200:
                 return "⚠️ Couldn't reach Wikipedia World Cup page right now."

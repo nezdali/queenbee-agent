@@ -87,7 +87,7 @@ async def run(context: dict) -> str:
                 "https://api.met.no/weatherapi/locationforecast/2.0/compact"
                 f"?lat={lat}&lon={lon}"
             )
-            headers = {"User-Tool": "telegram-chatbot/1.0 (contact@example.com)"}
+            headers = {"User-Agent": "telegram-chatbot/1.0 (contact@example.com)"}
             try:
                 async with session.get(url, headers=headers, timeout=20) as resp:
                     if resp.status != 200:

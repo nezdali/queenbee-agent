@@ -20,7 +20,7 @@ async def run(context: dict) -> str:
         }
         headers = {
             "accept": "application/json",
-            "user-tool": "telegram-bot-tool/1.0"
+            "user-agent": "telegram-bot-tool/1.0"
         }
 
         timeout = aiohttp.ClientTimeout(total=15)

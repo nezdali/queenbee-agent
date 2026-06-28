@@ -818,7 +818,7 @@ async def run(context: dict) -> str:
                     async with aiohttp.ClientSession() as sess:
                         async with sess.get(
                             f"https://open.spotify.com/embed/track/{track_id}",
-                            headers={"User-Tool": "Mozilla/5.0"},
+                            headers={"User-Agent": "Mozilla/5.0"},
                             timeout=10,
                         ) as resp:
                             if resp.status == 200:

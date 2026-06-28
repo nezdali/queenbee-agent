@@ -77,7 +77,7 @@ async def run(context: dict) -> str:
                 async with session.get(
                     RIMI_SEARCH,
                     params={"query": query, "pageSize": str(max_results), "category": "SH-1"},
-                    headers={"User-Tool": UA},
+                    headers={"User-Agent": UA},
                     timeout=aiohttp.ClientTimeout(total=15),
                 ) as resp:
                     if resp.status != 200:

@@ -65,7 +65,7 @@ async def run(context: dict) -> str:
         return label, bo
 
     try:
-        async with aiohttp.ClientSession(headers={"User-Tool": UA}, timeout=TIMEOUT) as session:
+        async with aiohttp.ClientSession(headers={"User-Agent": UA}, timeout=TIMEOUT) as session:
             home_html, status = await fetch(session, f"{BASE}/")
             if not home_html or status != 200:
                 return "⚠️ Couldn't reach snooker.org right now. Please try again later."

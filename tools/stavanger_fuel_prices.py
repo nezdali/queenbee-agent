@@ -5,7 +5,7 @@ async def run(context: dict) -> str:
 
         async def fetch_text(session, url):
             try:
-                headers = {"User-Tool": "Mozilla/5.0"}
+                headers = {"User-Agent": "Mozilla/5.0"}
                 async with session.get(url, headers=headers, timeout=20) as resp:
                     if resp.status != 200:
                         return None

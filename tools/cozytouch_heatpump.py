@@ -174,7 +174,7 @@ async def run(context: dict) -> str:
             headers={
                 "Authorization": f"Basic {COZYTOUCH_CLIENT_ID}",
                 "Content-Type": "application/x-www-form-urlencoded",
-                "User-Tool": UA,
+                "User-Agent": UA,
             },
             timeout=20,
         ) as r:
@@ -187,7 +187,7 @@ async def run(context: dict) -> str:
             access = tok["access_token"]
         async with session.get(
             f"{ATLANTIC_API}/magellan/accounts/jwt",
-            headers={"Authorization": f"Bearer {access}", "User-Tool": UA},
+            headers={"Authorization": f"Bearer {access}", "User-Agent": UA},
             timeout=20,
         ) as r:
             jwt = (await r.text()).strip().strip('"')
@@ -196,7 +196,7 @@ async def run(context: dict) -> str:
         async with session.post(
             f"{OVERKIZ_BASE}/login",
             data={"jwt": jwt},
-            headers={"User-Tool": UA},
+            headers={"User-Agent": UA},
             timeout=20,
         ) as r:
             text = await r.text()
@@ -213,7 +213,7 @@ async def run(context: dict) -> str:
     async def _get(session: aiohttp.ClientSession, path: str):
         async with session.get(
             f"{OVERKIZ_BASE}/{path.lstrip('/')}",
-            headers={"User-Tool": UA},
+            headers={"User-Agent": UA},
             timeout=30,
         ) as r:
             body = await r.text()
@@ -233,7 +233,7 @@ async def run(context: dict) -> str:
         async with session.post(
             f"{OVERKIZ_BASE}/exec/apply",
             json=payload,
-            headers={"User-Tool": UA, "Content-Type": "application/json"},
+            headers={"User-Agent": UA, "Content-Type": "application/json"},
             timeout=30,
         ) as r:
             text = await r.text()

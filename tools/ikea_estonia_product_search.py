@@ -49,7 +49,7 @@ async def run(context: dict) -> str:
             # Try local language first, then English fallback
             for try_lang in ([lang, lang_fb] if lang != lang_fb else [lang]):
                 api_url = f"https://sik.search.blue.cdtapps.com/{country_code}/{try_lang}/search-result-page?q={quote(query)}&size={max_results}"
-                async with session.get(api_url, headers={"User-Tool": UA, "Accept": "*/*"},
+                async with session.get(api_url, headers={"User-Agent": UA, "Accept": "*/*"},
                                        timeout=aiohttp.ClientTimeout(total=15)) as resp:
                     if resp.status != 200:
                         continue

@@ -15,7 +15,7 @@ async def run(context: dict) -> str:
             return "Некорректный username Duolingo. Используйте только буквы, цифры, _, ., -"
 
         headers = {
-            "User-Tool": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36",
+            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36",
             "Accept": "application/json, text/plain, */*",
             "Accept-Language": "en-US,en;q=0.9,ru;q=0.8"
         }

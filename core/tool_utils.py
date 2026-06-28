@@ -20,7 +20,7 @@ async def fetch_json(url: str, *, params: dict | None = None,
     Returns (parsed_data, http_status).
     On network error returns (None, 0).
     """
-    h = {"User-Tool": _DEFAULT_UA, "Accept": "application/json"}
+    h = {"User-Agent": _DEFAULT_UA, "Accept": "application/json"}
     if headers:
         h.update(headers)
     try:
@@ -47,7 +47,7 @@ async def fetch_text(url: str, *, params: dict | None = None,
     Returns (text, http_status).
     On network error returns (None, 0).
     """
-    h = {"User-Tool": _DEFAULT_UA}
+    h = {"User-Agent": _DEFAULT_UA}
     if headers:
         h.update(headers)
     try:

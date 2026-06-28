@@ -61,7 +61,7 @@ async def run(context: dict) -> str:
         UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 
         async with aiohttp.ClientSession() as session:
-            async with session.get(URL, headers={"User-Tool": UA},
+            async with session.get(URL, headers={"User-Agent": UA},
                                    timeout=aiohttp.ClientTimeout(total=15)) as resp:
                 if resp.status != 200:
                     return f"Failed to fetch fuel prices: HTTP {resp.status}"

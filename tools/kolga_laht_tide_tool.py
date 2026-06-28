@@ -150,7 +150,7 @@ async def run(context: dict) -> str:
     is_ru = language.startswith("ru")
 
     try:
-        html, status = await fetch_text(URL, headers={"User-Tool": UA})
+        html, status = await fetch_text(URL, headers={"User-Agent": UA})
         if status != 200 or not html:
             return f"❌ Ilmateenistus unreachable (HTTP {status})."
         rows, ts = parse_table(html)
