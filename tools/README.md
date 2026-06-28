@@ -62,10 +62,3 @@ From inside Telegram (admin role):
 The factory will draft code, run a security review, and (after admin
 approval for non-admin users) drop the new `<name>.py` + `<name>.json`
 into this folder. See the top-level README for details.
-
-## What's **not** committed
-
-Runtime state files are git-ignored:
-`*_cache.json`, `*_seen.json`, `*_state.json`, `*.db`,
-`regcar_cache.json`, `task_notifications.json`, `stock_watchlist.json`,
-`anekdot_seen.json`, `movie_cache.db`.
