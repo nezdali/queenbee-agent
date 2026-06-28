@@ -1,0 +1,14 @@
+{
+  "name": "task_notifier",
+  "description": "Schedule Telegram reminders for any task. One-shot, recurring (seconds-based), or monthly. Add, list, enable, disable, delete, or clear. Speak naturally ('remind me in 20 minutes to call mom') or use structured syntax (notify add in 30m Take pills).",
+  "requires_google_auth": false,
+  "trigger_keywords": [
+    "notify",
+    "notification",
+    "reminder",
+    "remind"
+  ],
+  "created_at": "2026-04-28T00:00:00+00:00",
+  "version": 1,
+  "help_example": "notify add in 30m Take pills"
+}

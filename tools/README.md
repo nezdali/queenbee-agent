@@ -88,6 +88,7 @@ credentials needed.
 | Tool | What it does | Auth |
 | --- | --- | --- |
 | `stopwatch_timer_manager` | Per-user stopwatches & countdown timers | — |
+| `task_notifier` | Schedule one-shot / recurring / monthly Telegram reminders (needs a monitor loop to fire) | — |
 | `tldr_summary_tool` | Five-bullet LLM summary of a URL or text | — |
 
 ## Adding your own
