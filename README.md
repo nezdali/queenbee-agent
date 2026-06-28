@@ -195,7 +195,7 @@ services/
   llm_service.py             — OpenAI API wrapper (streaming + tool-calling)
   model_router.py            — picks chat / codex / vision model per task
   strava_service.py          — Strava OAuth + REST wrapper (per-user tokens)
-tools/                       — 30 pre-built tools + your own generated ones
+tools/                       — 29 pre-built tools + your own generated ones
                                (see tools/README.md for the list)
 ```
 
