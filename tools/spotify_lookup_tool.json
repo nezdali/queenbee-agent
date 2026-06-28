@@ -1,0 +1,31 @@
+{
+  "name": "spotify_lookup_tool",
+  "description": "Search Spotify for songs, artists, albums, genres, and years with guidance for first-time OAuth setup.",
+  "requires_google_auth": false,
+  "trigger_keywords": [
+    "spotify",
+    "song",
+    "artist",
+    "band",
+    "genre",
+    "album",
+    "music",
+    "музыка",
+    "песня",
+    "песню",
+    "трек",
+    "композиция",
+    "композицию",
+    "поставь",
+    "включи",
+    "сыграй",
+    "врубай",
+    "запусти"
+  ],
+  "created_at": "2026-04-03T23:02:27.708772+03:00",
+  "version": 1,
+  "status": "approved",
+  "created_by": 0,
+  "help_example": "",
+  "permission": "public"
+}

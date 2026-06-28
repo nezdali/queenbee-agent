@@ -1,0 +1,19 @@
+# Telegram + LLM core
+python-telegram-bot>=21.0
+openai>=1.40.0
+python-dotenv>=1.0.0
+
+# HTTP + scraping
+aiohttp>=3.9.0
+httpx>=0.27.0
+beautifulsoup4>=4.12.0
+lxml>=5.0.0
+
+# Optional: headless browser for SPA scraping (used by some generated tools)
+# Uncomment if you need it — also run `playwright install chromium` after pip install.
+# playwright>=1.45.0
+# playwright-stealth>=1.0.6
+
+# Optional: Azure Key Vault hydration (only needed if you set AZURE_KEYVAULT_URL)
+# azure-identity>=1.17.0
+# azure-keyvault-secrets>=4.8.0

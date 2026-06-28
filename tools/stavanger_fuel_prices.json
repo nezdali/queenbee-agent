@@ -1,0 +1,19 @@
+{
+  "name": "stavanger_fuel_prices",
+  "description": "Fetches current diesel and 95 petrol prices for Stavanger or falls back to Norway average fuel prices.",
+  "requires_google_auth": false,
+  "trigger_keywords": [
+    "fuel",
+    "diesel",
+    "petrol",
+    "stavanger",
+    "norway",
+    "95",
+    "bensin"
+  ],
+  "created_at": "2026-04-06T09:28:17.726094+03:00",
+  "version": 2,
+  "status": "approved",
+  "created_by": 0,
+  "help_example": ""
+}

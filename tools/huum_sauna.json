@@ -1,0 +1,18 @@
+{
+  "name": "huum_sauna",
+  "description": "Read/control a Huum electric sauna (Drop + UKU Wi-Fi) via Huum cloud API: status, on/off, temperature, humidity, light.",
+  "requires_google_auth": false,
+  "trigger_keywords": [
+    "sauna",
+    "huum",
+    "сауна",
+    "баня",
+    "парная"
+  ],
+  "created_at": "2026-06-04T03:00:00+03:00",
+  "version": 1,
+  "status": "approved",
+  "created_by": 0,
+  "help_example": "sauna — current status\nsauna on [T] — turn on (default 80, range 40-110)\nsauna off — turn off\nsauna temp <T> — change target temperature\nsauna humidity <0-10> — set steamer humidity\nsauna light — toggle light\nsauna raw — raw JSON\n\nSafety: starting is blocked while door is open. Add 'force' to override: sauna on 85 force\n\nRecipes:\n• Quick warm-up: sauna on 85\n• Steam session: sauna on 75 → sauna humidity 6\n• Done: sauna off",
+  "permission": "public"
+}

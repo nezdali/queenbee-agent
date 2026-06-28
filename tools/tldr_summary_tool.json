@@ -1,0 +1,14 @@
+{
+  "name": "tldr_summary_tool",
+  "description": "Fetches a webpage and returns a five-bullet summary.",
+  "requires_google_auth": false,
+  "trigger_keywords": [
+    "tldr"
+  ],
+  "created_at": "2026-05-31T19:28:51.628806+03:00",
+  "version": 2,
+  "status": "approved",
+  "created_by": 0,
+  "help_example": "",
+  "permission": "public"
+}

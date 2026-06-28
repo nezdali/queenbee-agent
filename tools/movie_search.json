@@ -1,0 +1,20 @@
+{
+  "name": "movie_search",
+  "description": "Search movies via TMDb (info, cast, ratings) or find full movies on YouTube with AI classification and video analysis",
+  "requires_google_auth": false,
+  "trigger_keywords": [
+    "movie",
+    "фильм",
+    "кино",
+    "film",
+    "cache",
+    "cinema",
+    "кинец",
+    "киношка"
+  ],
+  "created_at": "2026-03-27T14:00:00+02:00",
+  "version": 2,
+  "status": "approved",
+  "created_by": 0,
+  "help_example": "movie inception — info about a movie\nmovie french comedy — discover by genre/language\nmovie find french comedy — find full movies on YouTube + analyze\nmovie new french comedy — force fresh YouTube search\nmovie cache — list cached movies\nmovie 5 korean thriller — find up to 5 movies"
+}

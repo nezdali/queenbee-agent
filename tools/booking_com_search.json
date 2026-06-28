@@ -1,0 +1,18 @@
+{
+  "name": "booking_com_search",
+  "description": "Search hotels/apartments on Booking.com. Args: <destination> [type=hotel|apartment|hostel|villa|resort|guesthouse|bnb] [checkin=YYYY-MM-DD] [checkout=YYYY-MM-DD] [adults=N] [children=N] [rooms=N] [price_min=N] [price_max=N] [stars=3,4,5] [currency=EUR] [facility=pool,spa,parking] [room=ac,balcony] [meal=breakfast] [free_cancel] [sort=price|review]. price_min/price_max are PER NIGHT. Pass them exactly as the user says. If user says total budget, divide by number of nights first. Example: Paris type=apartment checkin=2026-06-20 checkout=2026-06-26 adults=2 price_min=200 price_max=300",
+  "requires_google_auth": false,
+  "trigger_keywords": [
+    "booking",
+    "accommodation",
+    "hotel",
+    "stay",
+    "book"
+  ],
+  "created_at": "2026-04-16T16:23:55.973909+03:00",
+  "version": 1,
+  "status": "approved",
+  "created_by": 0,
+  "help_example": "",
+  "permission": "public"
+}

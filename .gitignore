@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+env/
+
+# Environment + secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+
+# Auth tokens / credentials — never commit
+*token*.json
+*credentials*.json
+*cookies.txt
+
+# Generated tools — runtime state files (per-deployment, never commit)
+tools/*_cache.json
+tools/*_seen.json
+tools/*_state.json
+tools/*.db
+tools/regcar_cache.json
+tools/task_notifications.json
+tools/stock_watchlist.json
+tools/anekdot_seen.json
+tools/movie_cache.db
+
+# Persistent state
+scheduled_jobs.json
+user_roles.json
+prompts_*.jsonl
+
+# Logs
+*.log
+logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db

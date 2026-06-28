@@ -1,0 +1,24 @@
+{
+  "name": "jysk_estonia_products",
+  "description": "Searches JYSK products across Estonia and other country sites, with optional price and color filtering.",
+  "requires_google_auth": false,
+  "trigger_keywords": [
+    "jysk",
+    "furniture",
+    "price",
+    "color",
+    "estonia",
+    "denmark",
+    "sweden",
+    "norway",
+    "finland",
+    "latvia",
+    "lithuania",
+    "poland"
+  ],
+  "created_at": "2026-04-05T18:17:51.614384+03:00",
+  "version": 3,
+  "status": "approved",
+  "created_by": 0,
+  "help_example": ""
+}

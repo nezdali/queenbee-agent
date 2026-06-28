@@ -1,0 +1,29 @@
+{
+  "name": "cozytouch_heatpump",
+  "description": "Read/control Atlantic Cozytouch heat pump and DHW (status, energy, setpoint, mode, hot water).",
+  "requires_google_auth": false,
+  "trigger_keywords": [
+    "cozy",
+    "cozytouch",
+    "heatpump",
+    "печка",
+    "печь",
+    "тепло",
+    "отопление",
+    "дом",
+    "доме",
+    "дома",
+    "холоднее",
+    "теплее",
+    "прохладнее",
+    "жарче",
+    "сделай",
+    "сделать"
+  ],
+  "created_at": "2026-06-03T03:00:00+03:00",
+  "version": 1,
+  "status": "approved",
+  "created_by": 0,
+  "help_example": "cozy — current status\ncozy devices — list devices\ncozy raw — raw states (diagnostics)\ncozy energy — energy consumption\ncozy set 21 — set target °C (zone derogation)\ncozy mode stop|heating|cooling — main heat pump mode\ncozy preset comfort|eco|away|frost|auto|manu — zone preset\ncozy hotwater on|off|boost\n\nRecipes:\n• Warm up now: cozy mode heating → cozy set 22\n• Back to schedule: cozy preset auto\n• Leaving for a while: cozy preset away\n• Summer / long absence: cozy mode stop and cozy hotwater off\n• Hot shower soon: cozy hotwater boost\n• Check power use: cozy energy",
+  "permission": "public"
+}

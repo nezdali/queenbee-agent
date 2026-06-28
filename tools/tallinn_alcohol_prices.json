@@ -1,0 +1,16 @@
+{
+  "name": "tallinn_alcohol_prices",
+  "description": "Finds alcohol prices in Tallinn from Rimi.ee store and Numbeo averages. Supports custom product searches.",
+  "requires_google_auth": false,
+  "trigger_keywords": [
+    "tallinn",
+    "таллинн",
+    "таллинне",
+    "таллин"
+  ],
+  "created_at": "2026-03-27T20:00:00+02:00",
+  "version": 1,
+  "status": "approved",
+  "created_by": 0,
+  "help_example": "tallinn beer prices"
+}

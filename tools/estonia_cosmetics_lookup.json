@@ -1,0 +1,19 @@
+{
+  "name": "estonia_cosmetics_lookup",
+  "description": "Searches cosmetics products and prices in Estonia from Douglas.ee and other local stores.",
+  "requires_google_auth": false,
+  "trigger_keywords": [
+    "cosmetics",
+    "douglas",
+    "beauty",
+    "skincare",
+    "makeup",
+    "estonia"
+  ],
+  "created_at": "2026-04-17T20:28:27.392825+03:00",
+  "version": 1,
+  "status": "approved",
+  "created_by": 0,
+  "help_example": "",
+  "permission": "public"
+}

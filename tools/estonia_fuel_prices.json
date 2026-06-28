@@ -1,0 +1,17 @@
+{
+  "name": "estonia_fuel_prices",
+  "description": "Fetches current fuel prices (Euro 95, Diesel) for Estonia or Latvia from fuel-prices.eu with EU comparison and weekly trends.",
+  "requires_google_auth": false,
+  "trigger_keywords": [
+    "fuel",
+    "petrol",
+    "diesel",
+    "gasoline",
+    "бензин",
+    "дизель",
+    "топливо"
+  ],
+  "created_at": "2026-03-24T15:39:11.566279+00:00",
+  "version": 3,
+  "help_example": "fuel — Estonia prices (default, 70L)\nfuel latvia — Latvia prices\nfuel diesel — diesel only\nfuel 95 — Euro 95 only\nfuel latvia 50 — Latvia, 50L tank\nfuel riga diesel — Latvia diesel"
+}

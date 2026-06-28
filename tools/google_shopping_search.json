@@ -1,0 +1,12 @@
+{
+  "name": "google_shopping_search",
+  "description": "Search Google Shopping for product prices and deals in Estonia.",
+  "requires_google_auth": false,
+  "trigger_keywords": [
+    "shop",
+    "shopping"
+  ],
+  "created_at": "2026-03-26T00:00:00+00:00",
+  "version": 1,
+  "help_example": "shop airpods pro 2"
+}

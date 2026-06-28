@@ -1,0 +1,16 @@
+{
+  "name": "stavanger_alcohol_prices",
+  "description": "Finds approximate average prices in Stavanger for whisky, beer, and Courvoisier 0.7L using public web sources like Vinmonopolet and Numbeo.",
+  "requires_google_auth": false,
+  "trigger_keywords": [
+    "stavanger",
+    "vinmonopolet",
+    "ставангер",
+    "ставангере"
+  ],
+  "created_at": "2026-03-27T17:16:17.972212+02:00",
+  "version": 1,
+  "status": "approved",
+  "created_by": 0,
+  "help_example": "whisky stavanger"
+}

@@ -1,0 +1,19 @@
+{
+  "name": "ikea_estonia_product_search",
+  "description": "Searches IKEA Estonia for products by name and returns matching items with prices, falling back to other IKEA country sites if Estonia has no results.",
+  "requires_google_auth": false,
+  "trigger_keywords": [
+    "ikea",
+    "furniture",
+    "product",
+    "price",
+    "estonia",
+    "international",
+    "fallback"
+  ],
+  "created_at": "2026-04-03T11:06:17.94284+03:00",
+  "version": 2,
+  "status": "approved",
+  "created_by": 0,
+  "help_example": ""
+}

@@ -1,0 +1,13 @@
+{
+  "name": "amazon_search",
+  "description": "Search Amazon.de for products with prices, ratings and direct links.",
+  "requires_google_auth": false,
+  "trigger_keywords": [
+    "amazon"
+  ],
+  "created_at": "2026-03-26T02:00:00+02:00",
+  "version": 2,
+  "status": "approved",
+  "created_by": 0,
+  "help_example": "amazon samsung galaxy s26"
+}

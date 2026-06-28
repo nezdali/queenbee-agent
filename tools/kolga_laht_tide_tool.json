@@ -1,0 +1,20 @@
+{
+  "name": "kolga_laht_tide_tool",
+  "description": "Sea level (Loksa / Kolga Bay area) from Ilmateenistus — level cm BK77/EH2000, 24h trend, water + air temp, wind. Optional station hint.",
+  "requires_google_auth": false,
+  "trigger_keywords": [
+    "kolga",
+    "sea",
+    "tide",
+    "море",
+    "уровень",
+    "loksa",
+    "локса"
+  ],
+  "created_at": "2026-06-05T11:42:39.216816+03:00",
+  "version": 4,
+  "status": "approved",
+  "created_by": 0,
+  "help_example": "kolga\nkolga loksa\nkolga pirita\nkolga kunda",
+  "permission": "public"
+}

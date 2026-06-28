@@ -1,0 +1,19 @@
+{
+  "name": "fifa_worldcup_status",
+  "description": "Shows the status of the FIFA World Cup 2026: group standings, recent results, and team lookup.",
+  "requires_google_auth": false,
+  "trigger_keywords": [
+    "fb",
+    "worldcup",
+    "worldcup2026",
+    "fifa",
+    "мундиаль",
+    "чм"
+  ],
+  "created_at": "2026-06-14T03:00:00+03:00",
+  "version": 1,
+  "status": "approved",
+  "created_by": 0,
+  "help_example": "fb | fb argentina | fb group a",
+  "permission": "public"
+}
