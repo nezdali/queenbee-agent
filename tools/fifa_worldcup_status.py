@@ -59,6 +59,13 @@ async def run(context: dict) -> str:
         re.search(r"\btomorrow\b|завтра|кто\s+играет\s+завтра", blob))
     wants_yesterday = any(t in {"yesterday", "вчера"} for t in tokens) or bool(
         re.search(r"\byesterday\b|вчера", blob))
+    wants_playoff = any(
+        t in {"playoff", "playoffs", "knockout", "bracket", "ko",
+              "плейофф", "плэйофф", "плей-офф", "плэй-офф"}
+        for t in tokens
+    ) or bool(re.search(
+        r"\bplay.?offs?\b|\bknockout\b|\bbracket\b|плей.?офф|плэй.?офф",
+        blob, re.IGNORECASE))
     query_tokens = [t for t in tokens if t and t not in GENERIC]
 
     requested_group_letter = None
@@ -577,6 +584,120 @@ async def run(context: dict) -> str:
                 out.append("\n\n".join(pieces))
                 return "\n".join(out)
 
+            # ---- Playoff / knockout view (collapsed in an expandable quote) ----
+            if wants_playoff:
+                msg_is_ru = is_ru or bool(re.search(
+                    r"[а-яё]", f"{user_message} {raw_extra}", re.IGNORECASE))
+                STAGE_LABELS_LOWER = {
+                    "round of 32": "Round of 32",
+                    "round of 16": "Round of 16",
+                    "quarterfinals": "Quarterfinals",
+                    "quarter-finals": "Quarterfinals",
+                    "semifinals": "Semifinals",
+                    "semi-finals": "Semifinals",
+                    "match for third place": "3rd Place",
+                    "third place play-off": "3rd Place",
+                    "final": "Final",
+                }
+                STAGE_ORDER = ["Round of 32", "Round of 16", "Quarterfinals",
+                               "Semifinals", "3rd Place", "Final"]
+                STAGE_RU = {
+                    "Round of 32": "1/16 финала",
+                    "Round of 16": "1/8 финала",
+                    "Quarterfinals": "1/4 финала",
+                    "Semifinals": "Полуфиналы",
+                    "3rd Place": "Матч за 3-е место",
+                    "Final": "Финал",
+                }
+                ABBR = {
+                    "Czech Republic": "Czech", "United States": "USA",
+                    "Saudi Arabia": "Saudi", "Bosnia and Herzegovina": "Bosnia",
+                    "Trinidad and Tobago": "Trinidad", "South Korea": "S.Korea",
+                    "South Africa": "S.Africa", "New Zealand": "N.Zeal.",
+                    "Netherlands": "Nethrl.", "Switzerland": "Swiss",
+                    "Cape Verde": "C.Verde", "Ivory Coast": "I.Coast",
+                    "Uzbekistan": "Uzbek.", "DR Congo": "DRCongo",
+                }
+                sections = {label: [] for label in STAGE_ORDER}
+                current_stage = None
+                for el in soup.find_all(["h2", "h3", "h4", "div"]):
+                    if el.name in ("h2", "h3", "h4"):
+                        title = clean(el.get_text(" ")).lower()
+                        matched = STAGE_LABELS_LOWER.get(title)
+                        if matched is not None:
+                            current_stage = matched
+                        elif el.name in ("h2", "h3"):
+                            current_stage = None
+                        continue
+                    if not current_stage:
+                        continue
+                    classes = el.get("class") or []
+                    if "footballbox" not in classes:
+                        continue
+                    tbl = el.find("table", class_="fevent")
+                    if not tbl:
+                        continue
+                    h_th = tbl.find("th", class_="fhome")
+                    s_th = tbl.find("th", class_="fscore")
+                    a_th = tbl.find("th", class_="faway")
+                    if not (h_th and s_th and a_th):
+                        continue
+                    home_name = clean(h_th.get_text(" ").replace("(H)", ""))
+                    away_name = clean(a_th.get_text(" ").replace("(H)", ""))
+                    score_text = clean(s_th.get_text(" "))
+                    date_div = el.select_one("div.fdate")
+                    date_text = clean(date_div.get_text(" ")) if date_div else ""
+                    iso_m = re.search(r"(\d{4}-\d{2}-\d{2})", date_text)
+                    iso_date = iso_m.group(1) if iso_m else ""
+                    time_div = el.select_one("div.ftime")
+                    time_text = clean(time_div.get_text(" ")) if time_div else ""
+                    kickoff_utc = _parse_kickoff_to_utc(iso_date, time_text)
+                    played = bool(re.match(r"^\d+\s*[–-]\s*\d+", score_text))
+                    sections[current_stage].append({
+                        "home": home_name, "away": away_name,
+                        "score": score_text, "kickoff_utc": kickoff_utc,
+                        "played": played,
+                    })
+                ordered = [(lab, sections[lab]) for lab in STAGE_ORDER if sections[lab]]
+                if not ordered:
+                    if msg_is_ru:
+                        return "⚠️ Плей-офф ещё не начался."
+                    return "⚠️ Knockout stage not yet available."
+                lines = []
+                for label, matches in ordered:
+                    matches.sort(
+                        key=lambda m: m.get("kickoff_utc")
+                        or datetime.max.replace(tzinfo=timezone.utc)
+                    )
+                    label_disp = STAGE_RU[label] if msg_is_ru else label
+                    lines.append(f"<b>{_esc(label_disp)}</b>")
+                    for m in matches:
+                        home = ABBR.get(m["home"], m["home"])
+                        away = ABBR.get(m["away"], m["away"])
+                        if m["played"]:
+                            sc_m = re.match(r"^\s*(\d+)\s*[–-]\s*(\d+)", m["score"])
+                            sc = f"{sc_m.group(1)}-{sc_m.group(2)}" if sc_m else m["score"]
+                            lines.append(
+                                f"{_esc(home)} <b>{_esc(sc)}</b> {_esc(away)}")
+                        else:
+                            ko = m.get("kickoff_utc")
+                            t_short = (
+                                ko.astimezone(TALLINN_TZ).strftime("%d/%m %H:%M")
+                                if ko else ""
+                            )
+                            if t_short:
+                                lines.append(
+                                    f"{_esc(t_short)} {_esc(home)} – {_esc(away)}")
+                            else:
+                                lines.append(f"{_esc(home)} – {_esc(away)}")
+                    lines.append("")
+                body = "\n".join(lines).rstrip()
+                title = "Плей-офф" if msg_is_ru else "Playoffs"
+                return (
+                    f"🏆 <b>FIFA World Cup 2026 — {_esc(title)}</b>\n"
+                    f"<blockquote expandable>{body}</blockquote>"
+                )
+
             # Explicit group letter (e.g. "fb group a" or "fb a") — show that group.
             if requested_group_letter:
                 match = [(L, rs) for L, rs in groups if L == requested_group_letter]
@@ -718,7 +839,8 @@ async def run(context: dict) -> str:
                        "<code>fb group &lt;letter&gt;</code> <i>for a group (A–L),</i> "
                        "<code>fb scorers</code> <i>for top goalscorers,</i> "
                        "<code>fb scorers &lt;team&gt;</code> <i>for a country's scorers,</i> "
-                       "<code>fb today</code> / <code>fb tomorrow</code> <i>for the day's matches.</i>")
+                       "<code>fb today</code> / <code>fb tomorrow</code> <i>for the day's matches,</i> "
+                       "<code>fb playoff</code> <i>for the knockout bracket.</i>")
             return "\n".join(out)
     except Exception as exc:
         return f"⚠️ Something went wrong while checking the World Cup: {exc}"
