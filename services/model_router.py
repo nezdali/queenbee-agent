@@ -22,7 +22,11 @@ from config import (
 
 def _build_openai_client() -> AsyncOpenAI:
     """Create the default OpenAI-compatible client."""
-    kwargs: dict = {"api_key": OPENAI_API_KEY}
+    kwargs: dict = {
+        "api_key": OPENAI_API_KEY,
+        # Keep network stalls below the application's outer request timeout.
+        "timeout": float(os.getenv("OPENAI_HTTP_TIMEOUT", "170")),
+    }
     if OPENAI_API_BASE:
         kwargs["base_url"] = OPENAI_API_BASE
     return AsyncOpenAI(**kwargs)
@@ -76,7 +80,7 @@ class ModelRouter:
     # string produced by the model.
     # ------------------------------------------------------------------
 
-    _RESPONSES_ONLY_PREFIXES = ("gpt-5-codex", "o1", "o3", "o4")
+    _RESPONSES_ONLY_PREFIXES = ("gpt-5-codex", "gpt-5.6-sol", "o1", "o3", "o4")
 
     @classmethod
     def _needs_responses_api(cls, model: str) -> bool:

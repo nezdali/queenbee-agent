@@ -19,6 +19,141 @@ client = router.openai_client
 _VISION_MODEL_KEYWORDS = ("gpt-4o", "gpt-4-vision", "gpt-4-turbo", "vision", "gemini", "claude-3")
 
 
+def _uses_responses_api(model_id: str) -> bool:
+    """Return whether normal chat/tool traffic should use /v1/responses."""
+    return ModelRouter._needs_responses_api(model_id)
+
+
+def _responses_tools(tools: list[dict] | None) -> list[dict]:
+    """Convert Chat Completions function schemas to Responses API schemas."""
+    converted: list[dict] = []
+    for tool in tools or []:
+        if tool.get("type") == "function" and isinstance(tool.get("function"), dict):
+            function = dict(tool["function"])
+            # Existing schemas predate Responses strict-mode requirements.
+            # Preserve an explicit value, otherwise retain best-effort behavior.
+            function.setdefault("strict", False)
+            converted.append({"type": "function", **function})
+        else:
+            converted.append(dict(tool))
+    return converted
+
+
+def _responses_reasoning(model_id: str) -> dict | None:
+    """Reasoning configuration for Responses-native models."""
+    if (model_id or "").lower().startswith("gpt-5.6-sol"):
+        return {"effort": "medium", "mode": "pro"}
+    return None
+
+
+def _response_text(response) -> str:
+    """Extract visible text from a Responses API response."""
+    text = getattr(response, "output_text", None)
+    if text:
+        return text
+    parts: list[str] = []
+    for item in getattr(response, "output", []) or []:
+        if getattr(item, "type", None) != "message":
+            continue
+        for content in getattr(item, "content", []) or []:
+            value = getattr(content, "text", None)
+            if value:
+                parts.append(value)
+    return "".join(parts)
+
+
+async def _responses_completion(
+    routed,
+    conversation_history: list[dict[str, str]],
+    tools: list[dict] | None,
+    tool_executor,
+) -> str:
+    """Run a Responses API function-call loop and return final visible text."""
+    input_items: list[dict] = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        *list(conversation_history),
+    ]
+    create_kwargs: dict = {
+        "model": routed.model,
+        "input": input_items,
+    }
+    response_tools = _responses_tools(tools)
+    if response_tools:
+        create_kwargs["tools"] = response_tools
+        create_kwargs["tool_choice"] = "auto"
+    reasoning = _responses_reasoning(routed.model)
+    if reasoning:
+        create_kwargs["reasoning"] = reasoning
+
+    max_tool_rounds = 10
+    tool_rounds = 0
+    # A workflow with 10 tool rounds needs an 11th model call to synthesize
+    # the final answer. The old range(10) returned the limit message immediately
+    # after executing tool round 10, before the model could see its result.
+    for _ in range(max_tool_rounds + 1):
+        response = await routed.client.responses.create(**create_kwargs)
+        function_calls = [
+            item for item in (getattr(response, "output", []) or [])
+            if getattr(item, "type", None) == "function_call"
+        ]
+        if not function_calls:
+            return _response_text(response) or "I received an empty response. Please try again."
+
+        if tool_executor is None:
+            raise RuntimeError("The model requested a tool but no tool executor is configured.")
+        if tool_rounds >= max_tool_rounds:
+            logger.warning(
+                "Responses model requested tools after %s rounds despite tool_choice=none",
+                max_tool_rounds,
+            )
+            return "Sorry, I reached the tool call limit without a final answer."
+
+        tool_outputs: list[dict] = []
+        for call in function_calls:
+            result = await tool_executor(call.name, call.arguments)
+            tool_outputs.append({
+                "type": "function_call_output",
+                "call_id": call.call_id,
+                "output": str(result),
+            })
+        tool_rounds += 1
+
+        # Continue the stored response so its opaque reasoning and function-call
+        # items remain available without replaying the full conversation.
+        create_kwargs["input"] = tool_outputs
+        create_kwargs["previous_response_id"] = response.id
+        if tool_rounds >= max_tool_rounds:
+            # Permit exactly ten tool rounds, then reserve one final model call
+            # for synthesis. This also prevents an accidental unbounded chain.
+            create_kwargs["tool_choice"] = "none"
+
+    return "Sorry, I reached the tool call limit without a final answer."
+
+
+async def _responses_stream(
+    routed,
+    conversation_history: list[dict[str, str]],
+) -> AsyncIterator[str]:
+    """Stream visible text from a tool-free Responses API request."""
+    create_kwargs: dict = {
+        "model": routed.model,
+        "input": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            *list(conversation_history),
+        ],
+        "stream": True,
+    }
+    reasoning = _responses_reasoning(routed.model)
+    if reasoning:
+        create_kwargs["reasoning"] = reasoning
+    stream = await routed.client.responses.create(**create_kwargs)
+    async for event in stream:
+        if getattr(event, "type", None) == "response.output_text.delta":
+            delta = getattr(event, "delta", None)
+            if delta:
+                yield delta
+
+
 async def list_models() -> list[str]:
     """Return a sorted list of available model IDs."""
     try:
@@ -79,6 +214,15 @@ async def get_llm_response(
     model_to_use = model or router.chat_model()
     routed = router.resolve(model_to_use)
 
+    if _uses_responses_api(routed.model):
+        try:
+            return await _responses_completion(
+                routed, conversation_history, tools, tool_executor,
+            )
+        except Exception as e:
+            logger.error("Responses API error: %s", e)
+            return f"Sorry, I encountered an error while processing your request: {e}"
+
     create_kwargs: dict = {"model": routed.model, "messages": messages}
     if tools:
         create_kwargs["tools"] = tools
@@ -89,15 +233,18 @@ async def get_llm_response(
     if model_to_use.startswith("ollama/"):
         create_kwargs["extra_body"] = {"reasoning_effort": "none"}
 
-    max_iterations = 10
+    max_tool_rounds = 10
     try:
-        for _ in range(max_iterations):
+        tool_rounds = 0
+        for _ in range(max_tool_rounds + 1):
             response = await routed.client.chat.completions.create(**create_kwargs)
             msg = response.choices[0].message
 
             if not msg.tool_calls:
                 # Plain text reply — we are done
                 return msg.content or "I received an empty response. Please try again."
+            if tool_rounds >= max_tool_rounds:
+                return "Sorry, I reached the tool call limit without a final answer."
 
             # Append the assistant's tool-call message to the running history
             messages.append(msg.to_dict())
@@ -110,8 +257,11 @@ async def get_llm_response(
                     "tool_call_id": tc.id,
                     "content": result,
                 })
+            tool_rounds += 1
 
             create_kwargs["messages"] = messages
+            if tool_rounds >= max_tool_rounds:
+                create_kwargs["tool_choice"] = "none"
 
         return "Sorry, I reached the tool call limit without a final answer."
     except Exception as e:
@@ -139,6 +289,25 @@ async def get_llm_response_stream(
     model_to_use = model or router.chat_model()
     routed = router.resolve(model_to_use)
 
+    if _uses_responses_api(routed.model):
+        try:
+            if tools:
+                # Keep tool selection/execution non-streamed, matching the
+                # existing Chat Completions path, then yield the final answer.
+                yield await _responses_completion(
+                    routed, conversation_history, tools, tool_executor,
+                )
+            else:
+                async for delta in _responses_stream(routed, conversation_history):
+                    yield delta
+            return
+        except Exception as e:
+            logger.error("Responses streaming error, falling back: %s", e)
+            yield await get_llm_response(
+                conversation_history, model, tools, tool_executor,
+            )
+            return
+
     create_kwargs: dict = {"model": routed.model, "messages": messages}
     if tools:
         create_kwargs["tools"] = tools
@@ -148,7 +317,7 @@ async def get_llm_response_stream(
     if model_to_use.startswith("ollama/") and not reasoning:
         create_kwargs["extra_body"] = {"reasoning_effort": "none"}
 
-    max_iterations = 10
+    max_tool_rounds = 10
     try:
         # Fast path: no tools requested → skip the non-streamed tool-check
         # call and stream directly. Saves a full round-trip + generation
@@ -164,7 +333,8 @@ async def get_llm_response_stream(
             return
 
         final_content: str | None = None
-        for _ in range(max_iterations):
+        tool_rounds = 0
+        for _ in range(max_tool_rounds + 1):
             # First, do a non-streamed call to check for tool calls
             response = await routed.client.chat.completions.create(**create_kwargs)
             msg = response.choices[0].message
@@ -175,6 +345,9 @@ async def get_llm_response_stream(
                 # for another full LLM round-trip just to re-stream it.
                 final_content = msg.content or ""
                 break
+            if tool_rounds >= max_tool_rounds:
+                yield "Sorry, I reached the tool call limit without a final answer."
+                return
 
             # Handle tool calls (non-streamed)
             messages.append(msg.to_dict())
@@ -185,10 +358,10 @@ async def get_llm_response_stream(
                     "tool_call_id": tc.id,
                     "content": result,
                 })
+            tool_rounds += 1
             create_kwargs["messages"] = messages
-        else:
-            yield "Sorry, I reached the tool call limit without a final answer."
-            return
+            if tool_rounds >= max_tool_rounds:
+                create_kwargs["tool_choice"] = "none"
 
         # Fast path: assistant gave us the final text in the same response
         # that had no tool calls — yield it directly (saves ~one full LLM
