@@ -36,6 +36,7 @@ tools/movie_cache.db
 scheduled_jobs.json
 user_roles.json
 prompts_*.jsonl
+prompt_log.jsonl
 
 # Logs
 *.log
