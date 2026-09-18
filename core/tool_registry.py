@@ -134,12 +134,44 @@ def get_schemas_for_user(user_id: int) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 async def dispatch(name: str, args: dict, user_context: dict | None = None) -> dict:
-    """Call a registered tool by name. Returns a result dict."""
+    """Call a registered tool by name with defense-in-depth RBAC enforcement."""
     tool = _REGISTRY.get(name)
     if not tool:
         return {"error": f"Unknown tool: {name}"}
+
+    context = user_context or {}
+    user_id = int(context.get("user_id") or 0)
+
+    # Public tools remain callable without an authenticated user. Any
+    # non-public permission requires an explicit caller identity.
+    if tool.permission not in ("", "public"):
+        if not user_id:
+            logger.warning(
+                "RBAC denial: unauthenticated dispatch of tool '%s' (permission=%s)",
+                name,
+                tool.permission,
+            )
+            return {"error": f"Permission denied: {name} requires {tool.permission}"}
+
+        from config import QB_ADMIN_USER_ID
+        is_admin = bool(QB_ADMIN_USER_ID) and user_id == QB_ADMIN_USER_ID
+        if not is_admin:
+            roles = _user_roles(user_id)
+            if not _role_has_permission(roles, tool.permission):
+                logger.warning(
+                    "RBAC denial: user %s (roles=%s) dispatched tool '%s' (permission=%s)",
+                    user_id,
+                    roles,
+                    name,
+                    tool.permission,
+                )
+                return {"error": f"Permission denied: {name} requires {tool.permission}"}
+
+    if tool.available_check and not tool.available_check():
+        return {"error": f"Tool unavailable: {name}"}
+
     try:
-        return await tool.handler(args, user_context or {})
+        return await tool.handler(args, context)
     except Exception as e:
         logger.error("Tool %s raised exception: %s", name, e)
         return {"error": str(e)}
