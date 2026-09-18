@@ -23,6 +23,22 @@ from .utils import (
 from .tool_dispatch import _translate_query
 
 
+def _visible_tools_for_user(user_id: int, tools: list) -> list:
+    """Return tools visible to a caller, matching execution RBAC semantics."""
+    if QB_ADMIN_USER_ID and user_id == QB_ADMIN_USER_ID:
+        return list(tools)
+
+    from core.tool_registry import _user_roles, _role_has_permission
+
+    roles = _user_roles(user_id)
+    return [
+        tool
+        for tool in tools
+        if tool.status == "approved"
+        and _role_has_permission(roles, tool.permission)
+    ]
+
+
 def _build_toolhelp_detail(a) -> str:
     """Build the detail help text for a single tool."""
     example = a.help_example or (f"{a.trigger_keywords[0]} ..." if a.trigger_keywords else "N/A")
@@ -569,7 +585,8 @@ async def tools_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     from core.tool_factory import list_tools
 
-    tools = list_tools()
+    user_id = update.effective_user.id if update.effective_user else 0
+    tools = _visible_tools_for_user(user_id, list_tools())
     if not tools:
         await update.message.reply_text(
             "No saved tools yet.\n\nCreate one:\n`>> describe what the tool should do`",
@@ -973,7 +990,8 @@ async def toolhelp_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
     from core.tool_factory import list_tools
 
-    tools = list_tools()
+    user_id = update.effective_user.id if update.effective_user else 0
+    tools = _visible_tools_for_user(user_id, list_tools())
     args = context.args or []
 
     # Single-tool detail view
@@ -986,10 +1004,7 @@ async def toolhelp_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         await update.message.reply_text(f"❌ Tool `{name}` not found.", parse_mode="Markdown")
         return
 
-    approved = sorted(
-        (a for a in tools if a.status == "approved"),
-        key=lambda a: a.name.lower(),
-    )
+    approved = sorted(tools, key=lambda a: a.name.lower())
     if not approved:
         await update.message.reply_text("No tools available yet.")
         return
@@ -1047,7 +1062,8 @@ async def toolhelp_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     name = data.removeprefix("toolhelp:")
 
     from core.tool_factory import list_tools
-    for a in list_tools():
+    user_id = query.from_user.id if query.from_user else 0
+    for a in _visible_tools_for_user(user_id, list_tools()):
         if a.name == name:
             keyboard = InlineKeyboardMarkup([[
                 InlineKeyboardButton(f"📋 Copy `{a.name}`", copy_text=CopyTextButton(text=a.name)),
