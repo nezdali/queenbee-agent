@@ -1,7 +1,7 @@
 from handlers import utils
 
 
-def test_prompt_logging_disabled_by_default(tmp_path, monkeypatch):
+def test_prompt_logging_can_be_disabled(tmp_path, monkeypatch):
     log_file = tmp_path / "prompt_log.jsonl"
     monkeypatch.setattr(utils, "_PROMPT_LOG_FILE", log_file)
     monkeypatch.setattr(utils, "PROMPT_LOG_ENABLED", False)
