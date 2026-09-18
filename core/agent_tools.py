@@ -11,8 +11,12 @@ Domain-specific tools (email, banking, fitness APIs, etc.) should live in
 their own modules and register themselves via core.tool_registry.register().
 """
 
+import asyncio
+import ipaddress
 import json
 import logging
+import socket
+from urllib.parse import urljoin, urlsplit
 
 logger = logging.getLogger(__name__)
 
@@ -143,6 +147,64 @@ TOOL_SCHEMAS = [
 
 
 # ---------------------------------------------------------------------------
+# URL safety
+# ---------------------------------------------------------------------------
+
+async def _resolve_host_ips(hostname: str, port: int) -> set[str]:
+    """Resolve a hostname to IP strings for SSRF validation."""
+    loop = asyncio.get_running_loop()
+    infos = await loop.getaddrinfo(
+        hostname,
+        port,
+        type=socket.SOCK_STREAM,
+    )
+    return {info[4][0].split("%", 1)[0] for info in infos}
+
+
+async def _validate_public_url(url: str) -> tuple[bool, str | None]:
+    """Allow only HTTP(S) URLs that resolve exclusively to public IP space."""
+    try:
+        parsed = urlsplit(url)
+    except Exception:
+        return False, "Invalid URL"
+
+    if parsed.scheme.lower() not in {"http", "https"}:
+        return False, "Only http:// and https:// URLs are allowed"
+    if not parsed.hostname:
+        return False, "URL must include a hostname"
+    if parsed.username is not None or parsed.password is not None:
+        return False, "URLs with embedded credentials are not allowed"
+
+    try:
+        port = parsed.port or (443 if parsed.scheme.lower() == "https" else 80)
+    except ValueError:
+        return False, "Invalid URL port"
+
+    host = parsed.hostname.rstrip(".")
+    try:
+        literal_ip = ipaddress.ip_address(host)
+        ips = {str(literal_ip)}
+    except ValueError:
+        try:
+            ips = await _resolve_host_ips(host, port)
+        except Exception:
+            return False, "Hostname could not be resolved"
+
+    if not ips:
+        return False, "Hostname did not resolve to an address"
+
+    for value in ips:
+        try:
+            ip = ipaddress.ip_address(value)
+        except ValueError:
+            return False, "Hostname resolved to an invalid address"
+        if not ip.is_global:
+            return False, f"URL resolves to a non-public address: {ip}"
+
+    return True, None
+
+
+# ---------------------------------------------------------------------------
 # Handlers
 # ---------------------------------------------------------------------------
 async def _handler_list_tools(args: dict, ctx: dict) -> dict:
@@ -165,24 +227,60 @@ async def _handler_list_tools(args: dict, ctx: dict) -> dict:
 
 async def _handler_fetch_url(args: dict, ctx: dict) -> dict:
     import aiohttp
+
     url = args.get("url")
     if not url:
         return {"error": "Missing 'url' argument"}
+
     headers = args.get("headers") or {}
+    if not isinstance(headers, dict):
+        return {"error": "'headers' must be an object"}
+
+    # Do not allow callers to override connection-routing headers.
+    headers = {
+        str(k): str(v)
+        for k, v in headers.items()
+        if str(k).lower() not in {"host", "connection", "proxy-authorization"}
+    }
+
+    current_url = str(url)
+    max_redirects = 5
+
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.get(
-                url, headers=headers, timeout=aiohttp.ClientTimeout(total=15)
-            ) as resp:
-                content_type = resp.content_type or ""
-                if "json" in content_type:
-                    data = await resp.json()
-                else:
-                    data = await resp.text()
-                # Truncate large text responses
-                if isinstance(data, str) and len(data) > 20_000:
-                    data = data[:20_000] + "\n... [truncated]"
-                return {"status": resp.status, "data": data}
+            for redirect_count in range(max_redirects + 1):
+                allowed, reason = await _validate_public_url(current_url)
+                if not allowed:
+                    return {"error": f"Blocked URL: {reason}"}
+
+                async with session.get(
+                    current_url,
+                    headers=headers,
+                    timeout=aiohttp.ClientTimeout(total=15),
+                    allow_redirects=False,
+                ) as resp:
+                    if 300 <= resp.status < 400 and resp.headers.get("Location"):
+                        if redirect_count >= max_redirects:
+                            return {"error": f"Too many redirects (>{max_redirects})"}
+                        current_url = urljoin(current_url, resp.headers["Location"])
+                        continue
+
+                    content_type = resp.content_type or ""
+                    if "json" in content_type:
+                        data = await resp.json()
+                    else:
+                        data = await resp.text()
+
+                    if isinstance(data, str) and len(data) > 20_000:
+                        data = data[:20_000] + "\n... [truncated]"
+
+                    return {
+                        "status": resp.status,
+                        "data": data,
+                        "url": current_url,
+                    }
+
+            return {"error": f"Too many redirects (>{max_redirects})"}
     except Exception as e:
         return {"error": f"{type(e).__name__}: {e}"}
 
