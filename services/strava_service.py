@@ -19,10 +19,12 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-# Legacy single-file path (used as fallback when no user_id is passed).
+# Legacy single-file path. It is only used directly for legacy single-user
+# calls (user_id is None), or for the explicitly bound STRAVA_LEGACY_USER_ID.
 STRAVA_TOKEN_FILE = os.getenv("STRAVA_TOKEN_FILE", "strava_token.json")
 # Directory for per-user token files.
 STRAVA_TOKEN_DIR = os.getenv("STRAVA_TOKEN_DIR", ".")
+STRAVA_LEGACY_USER_ID = int(os.getenv("STRAVA_LEGACY_USER_ID", "0") or "0")
 _REDIRECT_URI = "http://localhost/exchange_token"
 _AUTH_URL = "https://www.strava.com/oauth/mobile/authorize"
 _TOKEN_URL = "https://www.strava.com/oauth/token"
@@ -51,16 +53,18 @@ def _load_token(user_id: int | None = None) -> dict | None:
             return json.loads(p.read_text(encoding="utf-8"))
         except Exception:
             pass
-    # Backward-compat: if per-user file is missing but the legacy shared
-    # file exists, fall back to it (lets the original owner keep working
-    # without re-authorizing immediately after the migration).
-    if user_id:
+
+    # Safe backward compatibility: never expose the legacy shared token to
+    # arbitrary users. It may only be inherited by the explicitly configured
+    # original owner.
+    if user_id and STRAVA_LEGACY_USER_ID and int(user_id) == STRAVA_LEGACY_USER_ID:
         legacy = Path(STRAVA_TOKEN_FILE)
         if legacy.exists():
             try:
                 return json.loads(legacy.read_text(encoding="utf-8"))
             except Exception:
                 pass
+
     return None
 
 
