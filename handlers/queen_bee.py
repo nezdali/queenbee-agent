@@ -529,7 +529,7 @@ async def qb_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             parse_mode="Markdown",
         )
 
-    if data.startswith("qb_approve:") or data.startswith("qb_reject:"):
+    if data.startswith("qb_a:") or data.startswith("qb_r:"):
         reviewer_id = query.from_user.id if query.from_user else 0
         if not (QB_ADMIN_USER_ID and reviewer_id == QB_ADMIN_USER_ID):
             await query.answer("Only the admin can approve or reject tools.", show_alert=True)
@@ -539,19 +539,34 @@ async def qb_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         if len(parts) != 3:
             await query.edit_message_text("⚠️ Malformed callback data.")
             return
-        action, tool_name, created_by_str = parts
-        created_by = int(created_by_str) if created_by_str.isdigit() else 0
+        action, tool_name, review_token = parts
 
         manifest_path = _Path(__file__).parent.parent / "tools" / f"{tool_name}.json"
+        code_path = _Path(__file__).parent.parent / "tools" / f"{tool_name}.py"
 
-        if not manifest_path.exists():
+        if not manifest_path.exists() or not code_path.exists():
             await query.edit_message_text(f"⚠️ Tool `{tool_name}` no longer exists.")
             return
 
-        if action == "qb_approve":
-            data_json = _json.loads(manifest_path.read_text(encoding="utf-8"))
+        from core.tool_factory import _tool_code_sha256
+
+        current_hash = _tool_code_sha256(code_path.read_text(encoding="utf-8"))[:8]
+        if current_hash != review_token:
+            await query.edit_message_text(
+                f"⚠️ Review for `{tool_name}` is stale because the code changed. "
+                "Run a new security review before approving or rejecting it."
+            )
+            return
+
+        data_json = _json.loads(manifest_path.read_text(encoding="utf-8"))
+        created_by = int(data_json.get("created_by") or 0)
+
+        if action == "qb_a":
             data_json["status"] = "approved"
-            manifest_path.write_text(_json.dumps(data_json, indent=2, ensure_ascii=False), encoding="utf-8")
+            manifest_path.write_text(
+                _json.dumps(data_json, indent=2, ensure_ascii=False),
+                encoding="utf-8",
+            )
             await query.edit_message_text(f"✅ Tool `{tool_name}` approved.")
             if created_by:
                 try:
@@ -562,10 +577,12 @@ async def qb_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                     )
                 except Exception:
                     pass
-        else:  # qb_reject
-            data_json = _json.loads(manifest_path.read_text(encoding="utf-8"))
+        else:  # qb_r
             data_json["status"] = "rejected"
-            manifest_path.write_text(_json.dumps(data_json, indent=2, ensure_ascii=False), encoding="utf-8")
+            manifest_path.write_text(
+                _json.dumps(data_json, indent=2, ensure_ascii=False),
+                encoding="utf-8",
+            )
             await query.edit_message_text(f"🚫 Tool `{tool_name}` rejected.")
             if created_by:
                 try:
