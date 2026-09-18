@@ -252,36 +252,51 @@ async def review_tool_security(name: str, code: str, created_by: int, bot) -> No
         except Exception as exc:
             logger.error("Could not update status for tool '%s': %s", name, exc)
 
+    review_error: str | None = None
     try:
         raw = await router.create_json(
             router.codex_model(),
             system_prompt=_SECURITY_REVIEW_PROMPT,
-            user_prompt=f"Review this tool code:\n\n```python\n{code}\n```",
+            user_prompt=f"Review this tool code:\n\n\`\`\`python\n{code}\n\`\`\`",
         )
-        result = _json.loads(raw or "{}")
+        result = _json.loads(raw or "")
+
+        if not isinstance(result, dict):
+            review_error = "security review returned a non-object response"
+        elif result.get("safe") is True:
+            logger.info("Security review passed for tool '%s'", name)
+            _update_status("approved")
+            try:
+                await bot.send_message(
+                    chat_id=created_by,
+                    text=f"✅ Tool \`{name}\` passed security review and is ready.\nRun it with: \`/runtool {name}\`",
+                    parse_mode="Markdown",
+                )
+            except Exception:
+                pass
+            return
+        elif result.get("safe") is False:
+            pass
+        elif "safe" not in result:
+            review_error = "security review response omitted the 'safe' field"
+        else:
+            review_error = "security review returned an invalid 'safe' value"
     except Exception as e:
-        logger.warning("Security review LLM call failed for tool '%s': %s — auto-approving", name, e)
-        _update_status("approved")
-        try:
-            await bot.send_message(chat_id=created_by,
-                text=f"✅ Tool `{name}` passed security review and is ready to use.",
-                parse_mode="Markdown")
-        except Exception:
-            pass
-        return
+        result = {}
+        review_error = f"{type(e).__name__}: {e}"
 
-    if result.get("safe", True):
-        logger.info("Security review passed for tool '%s'", name)
-        _update_status("approved")
-        try:
-            await bot.send_message(chat_id=created_by,
-                text=f"✅ Tool `{name}` passed security review and is ready.\nRun it with: `/runtool {name}`",
-                parse_mode="Markdown")
-        except Exception:
-            pass
-        return
+    if review_error:
+        logger.warning(
+            "Security review could not establish safety for tool '%s': %s — keeping pending_review",
+            name,
+            review_error,
+        )
+        result = {
+            "safe": False,
+            "issues": [f"Automatic security review failed: {review_error}"],
+        }
 
-    # Issues found — keep pending_review, alert admin
+    # Issues found or review failed — keep pending_review, alert admin
     issues = result.get("issues", [])
     issues_text = "\n".join(f"• {i}" for i in issues) or "• Unspecified security concern"
     logger.warning("Security review flagged tool '%s': %s", name, issues)
