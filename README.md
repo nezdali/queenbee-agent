@@ -349,6 +349,8 @@ The LLM will only see tools the calling user has permission for.
 - Telegram tokens, OpenAI keys, etc. are read from environment only. The
   `.gitignore` excludes `.env`, all `*token*.json`, all `*credentials*.json`,
   and all `*.pem`/`*.key` files.
+- See [SECURITY.md](./SECURITY.md) for the security model, deployment guidance,
+  and vulnerability reporting instructions.
 
 ---
 
