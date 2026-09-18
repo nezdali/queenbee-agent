@@ -105,8 +105,13 @@ def save_secret_to_keyvault(name: str, value: str) -> bool:
 TELEGRAM_BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
 OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
 
-# LLM model. Defaults to a small GPT-class model; can be overridden per-user.
-LLM_MODEL: str = os.getenv("LLM_MODEL", "gpt-4o-mini")
+# LLM model. Prefer the public-facing OPENAI_DEFAULT_MODEL name, while
+# preserving LLM_MODEL as a backwards-compatible alias for existing deployments.
+OPENAI_DEFAULT_MODEL: str = os.getenv(
+    "OPENAI_DEFAULT_MODEL",
+    os.getenv("LLM_MODEL", "gpt-4o-mini"),
+)
+LLM_MODEL: str = OPENAI_DEFAULT_MODEL
 CODEX_MODEL: str = os.getenv("CODEX_MODEL", "gpt-4o-mini")
 
 # Model role aliases used by services/model_router.py
@@ -114,9 +119,14 @@ CHAT_MODEL: str = os.getenv("CHAT_MODEL", LLM_MODEL)
 IMAGE_MODEL: str = os.getenv("IMAGE_MODEL", "gpt-4o-mini")
 VIDEO_MODEL: str = os.getenv("VIDEO_MODEL", "gpt-4o-mini")
 
-# Optional: point at an OpenAI-compatible endpoint other than api.openai.com
-# (Azure OpenAI, vLLM, LiteLLM proxy, etc.). Leave empty to use the default.
-OPENAI_API_BASE: str = os.getenv("OPENAI_API_BASE", "")
+# Optional: point at an OpenAI-compatible endpoint other than api.openai.com.
+# Prefer OPENAI_BASE_URL, while preserving OPENAI_API_BASE as a backwards-
+# compatible alias for existing deployments.
+OPENAI_BASE_URL: str = os.getenv(
+    "OPENAI_BASE_URL",
+    os.getenv("OPENAI_API_BASE", ""),
+)
+OPENAI_API_BASE: str = OPENAI_BASE_URL
 
 # System prompt prepended to every conversation.
 SYSTEM_PROMPT: str = os.getenv(
