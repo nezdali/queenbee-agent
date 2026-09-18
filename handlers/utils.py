@@ -11,7 +11,7 @@ import time as _time
 from datetime import datetime, timezone
 from pathlib import Path as _Path
 
-from config import QB_ADMIN_USER_ID
+from config import PROMPT_LOG_ENABLED, QB_ADMIN_USER_ID
 from core.conversation import ConversationManager
 
 logger = logging.getLogger(__name__)
@@ -77,7 +77,10 @@ _PROMPT_LOG_FILE = _Path(__file__).resolve().parent.parent / "prompt_log.jsonl"
 
 
 def _log_prompt(user_id: int, username: str, first_name: str, message: str) -> None:
-    """Append a prompt entry to the daily log file."""
+    """Append a prompt entry only when plaintext prompt logging is explicitly enabled."""
+    if not PROMPT_LOG_ENABLED:
+        return
+
     entry = {
         "ts": datetime.now(timezone.utc).isoformat(),
         "user_id": user_id,
