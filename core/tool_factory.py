@@ -91,6 +91,19 @@ _FORBIDDEN_PATTERNS: dict[str, list[str]] = {
         r"\.unlink\s*\(",
         r"\.rmdir\s*\(",
     ],
+    "file access/modification": [
+        r"\bopen\s*\(",
+        r"\.open\s*\(",
+        r"\.read_text\s*\(",
+        r"\.read_bytes\s*\(",
+        r"\.write_text\s*\(",
+        r"\.write_bytes\s*\(",
+        r"\bos\.rename\s*\(",
+        r"\bos\.replace\s*\(",
+        r"\.rename\s*\(",
+        r"\.replace\s*\(",
+        r"\bshutil\.(?:copy|copy2|copyfile|move)\s*\(",
+    ],
 }
 
 # ---------------------------------------------------------------------------
@@ -180,8 +193,10 @@ _SECURITY_RULES = """\
 8. SECURITY — you MUST follow these rules for ALL generated code:
    - NEVER use subprocess, os.system, os.popen, os.exec*, os.spawn, eval(), or exec().
    - NEVER list files on the host system (os.listdir, os.scandir, os.walk, glob, .iterdir, .glob, .rglob).
-   - NEVER delete or modify files (os.remove, os.unlink, os.rmdir, shutil.rmtree, Path.unlink, Path.rmdir).
-   - NEVER write to files outside the run() function's own return value.
+   - NEVER read host files (open, Path.open, Path.read_text, Path.read_bytes).
+   - NEVER write, move, rename, copy, or delete host files (open for writing, Path.write_text,
+     Path.write_bytes, os.rename, os.replace, shutil.copy*, shutil.move, os.remove,
+     os.unlink, os.rmdir, shutil.rmtree, Path.unlink, Path.rmdir).
    Any violation will cause the tool to be rejected.
 """
 
