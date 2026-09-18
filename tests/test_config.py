@@ -1,5 +1,6 @@
 import importlib
-import sys
+
+import config as config_module
 
 
 def _reload_config(monkeypatch, **env):
@@ -16,9 +17,10 @@ def _reload_config(monkeypatch, **env):
     for key, value in env.items():
         monkeypatch.setenv(key, value)
 
-    sys.modules.pop("config", None)
-    import config
-    return importlib.reload(config)
+    # Reload the existing module object in place. Removing it from
+    # sys.modules would create a second config module object and break
+    # monkeypatches in modules that already hold a reference to the original.
+    return importlib.reload(config_module)
 
 
 def test_documented_model_env_name_takes_precedence(monkeypatch):
