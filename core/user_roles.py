@@ -15,8 +15,8 @@ File format:
       ...
     }
 
-This module is intentionally tiny — no async, no locking. Concurrent edits
-from the Telegram admin are rare enough that the last writer wins.
+This module is intentionally tiny and synchronous. Read-modify-write mutations
+are protected by a process-local lock and persisted via atomic file replacement.
 """
 
 from __future__ import annotations
@@ -24,9 +24,12 @@ from __future__ import annotations
 import json
 import logging
 import os
+import threading
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+_STORE_LOCK = threading.RLock()
 
 
 def _default_path() -> Path:
@@ -81,7 +84,7 @@ def load() -> dict[int, dict]:
 
 
 def save(mapping: dict[int, dict]) -> None:
-    """Persist the mapping to disk and mirror to KV."""
+    """Persist the mapping atomically and mirror to KV."""
     _ensure_dir()
     payload = {
         str(uid): {
@@ -90,10 +93,13 @@ def save(mapping: dict[int, dict]) -> None:
         }
         for uid, info in mapping.items()
     }
-    _path().write_text(
+    p = _path()
+    tmp = p.with_name(p.name + ".tmp")
+    tmp.write_text(
         json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False),
         encoding="utf-8",
     )
+    os.replace(tmp, p)
     try:
         from config import save_secret_to_keyvault
         save_secret_to_keyvault(_kv_secret_name(), json.dumps(payload))
@@ -137,25 +143,28 @@ def get_roles(user_id: int, fallback: list[str] | None = None) -> list[str]:
 
 def set_roles(user_id: int, roles: list[str], username: str = "") -> dict:
     """Replace a user's roles. Returns the saved record."""
-    mapping = load()
     record = {
         "roles": [r.strip().lower() for r in roles if r and r.strip()],
         "username": username.lstrip("@").lower(),
     }
     if "public" not in record["roles"]:
         record["roles"].insert(0, "public")
-    mapping[int(user_id)] = record
-    save(mapping)
+
+    with _STORE_LOCK:
+        mapping = load()
+        mapping[int(user_id)] = record
+        save(mapping)
     return record
 
 
 def remove_user(user_id: int) -> bool:
     """Remove a user. Returns True if a row was deleted."""
-    mapping = load()
-    if int(user_id) in mapping:
-        mapping.pop(int(user_id))
-        save(mapping)
-        return True
+    with _STORE_LOCK:
+        mapping = load()
+        if int(user_id) in mapping:
+            mapping.pop(int(user_id))
+            save(mapping)
+            return True
     return False
 
 
