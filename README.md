@@ -16,6 +16,32 @@ message → LLM → tool selection → execution → response
 
 The unusual part is that the tool registry is **not fixed**. Users can describe a new capability in plain English, and QueenBee can generate the Python implementation, run security checks, route it through approval, persist it, and make it callable from the next conversation turn.
 
+## See it in 25 seconds
+
+The core loop is simple:
+
+```text
+You:
+>> create a tool that gets the current Euribor rate
+
+QueenBee:
+Generating euribor_rate...
+Static security checks passed.
+Security review passed.
+Tool installed.
+
+You:
+What's the current Euribor?
+
+QueenBee:
+Running euribor_rate...
+3-month Euribor: ...
+```
+
+**That is the product:** QueenBee can turn a plain-English capability request into a reviewed runtime tool and use it on the next turn — no restart, no hand-written integration.
+
+A launch/demo recording script is included in [docs/LAUNCH_KIT.md](docs/LAUNCH_KIT.md).
+
 ## Why QueenBee?
 
 The interesting part is not the Telegram interface. The agent can extend its own capabilities while it is running.
