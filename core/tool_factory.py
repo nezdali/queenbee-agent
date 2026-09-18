@@ -15,6 +15,7 @@ Each tool exposes exactly one function:
     async def run(context: dict) -> str
 """
 
+import hashlib
 import importlib.util
 import json
 import logging
@@ -220,6 +221,11 @@ def _validate_tool_code(code: str, user_id: int) -> str | None:
     return None
 
 
+def _tool_code_sha256(code: str) -> str:
+    """Return a stable SHA-256 fingerprint for generated tool source."""
+    return hashlib.sha256(code.encode("utf-8")).hexdigest()
+
+
 # ---------------------------------------------------------------------------
 # LLM-based security review (async, fires after tool is saved)
 # ---------------------------------------------------------------------------
@@ -259,14 +265,37 @@ async def review_tool_security(name: str, code: str, created_by: int, bot) -> No
     router = ModelRouter()
 
     manifest_path = _tools_dir() / f"{name}.json"
+    code_path = _tools_dir() / f"{name}.py"
+    reviewed_hash = _tool_code_sha256(code)
 
-    def _update_status(new_status: str) -> None:
+    def _update_status(new_status: str) -> bool:
+        """Update status only if the on-disk code is exactly what was reviewed."""
         try:
+            if not code_path.exists():
+                logger.warning(
+                    "Security review for tool '%s' is stale: code file no longer exists",
+                    name,
+                )
+                return False
+
+            current_hash = _tool_code_sha256(code_path.read_text(encoding="utf-8"))
+            if current_hash != reviewed_hash:
+                logger.warning(
+                    "Security review for tool '%s' is stale: code changed during review",
+                    name,
+                )
+                return False
+
             data = _json.loads(manifest_path.read_text(encoding="utf-8"))
             data["status"] = new_status
-            manifest_path.write_text(_json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+            manifest_path.write_text(
+                _json.dumps(data, indent=2, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            return True
         except Exception as exc:
             logger.error("Could not update status for tool '%s': %s", name, exc)
+            return False
 
     review_error: str | None = None
     try:
@@ -317,9 +346,10 @@ async def review_tool_security(name: str, code: str, created_by: int, bot) -> No
     issues_text = "\n".join(f"• {i}" for i in issues) or "• Unspecified security concern"
     logger.warning("Security review flagged tool '%s': %s", name, issues)
 
+    review_token = reviewed_hash[:8]
     keyboard = InlineKeyboardMarkup([[
-        InlineKeyboardButton("✅ Approve", callback_data=f"qb_approve:{name}:{created_by}"),
-        InlineKeyboardButton("❌ Reject",  callback_data=f"qb_reject:{name}:{created_by}"),
+        InlineKeyboardButton("✅ Approve", callback_data=f"qb_a:{name}:{review_token}"),
+        InlineKeyboardButton("❌ Reject",  callback_data=f"qb_r:{name}:{review_token}"),
     ]])
     alert = (
         f"🔍 *Security Review Alert*\n\n"
