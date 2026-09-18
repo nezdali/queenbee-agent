@@ -104,6 +104,10 @@ async def _handle_qb_request(update: Update, context: ContextTypes.DEFAULT_TYPE,
         "trigger_keywords": meta.trigger_keywords,
         "created_at": meta.created_at,
         "version": meta.version,
+        "status": meta.status,
+        "created_by": meta.created_by,
+        "help_example": meta.help_example,
+        "permission": meta.permission,
         "code": result,
     }
 
@@ -479,8 +483,9 @@ async def qb_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
         from core.tool_factory import ToolMeta, save_tool, review_tool_security
 
-        code = pending.pop("code")
-        meta = ToolMeta(**pending)
+        pending_copy = dict(pending)
+        code = pending_copy.pop("code")
+        meta = ToolMeta(**pending_copy)
         user_id = query.from_user.id if query.from_user else 0
 
         try:
