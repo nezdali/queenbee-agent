@@ -139,21 +139,138 @@ def parse_args(context: dict) -> list[str]:
     return context.get("args", []) or []
 
 
+async def _validate_browser_request_url(
+    url: str,
+    cache: dict[str, tuple[bool, str | None]],
+) -> tuple[bool, str | None]:
+    """Validate a browser request URL, caching repeated HTTP(S) origins."""
+    from urllib.parse import urlsplit
+
+    parsed = urlsplit(url)
+    scheme = parsed.scheme.lower()
+
+    # Browser-internal, non-network resources cannot reach host services.
+    if scheme in {"data", "blob", "about"}:
+        return True, None
+
+    if scheme not in {"http", "https"}:
+        return False, f"Blocked browser request scheme: {scheme or '(none)'}"
+
+    origin = f"{scheme}://{parsed.hostname or ''}:{parsed.port or (443 if scheme == 'https' else 80)}"
+    if origin not in cache:
+        cache[origin] = await validate_public_url(url)
+    return cache[origin]
+
+
 async def fetch_rendered(url: str, *, selector: str | None = None,
                          wait_for: str | None = None,
                          timeout: int = 20,
                          return_html: bool = False,
                          stealth: bool = False) -> dict:
-    """Fetch a fully JS-rendered page via shared headless Chromium (Playwright).
+    """Fetch a JS-rendered public page with Playwright.
 
-    The initial URL is checked by the shared SSRF guard before browser launch.
+    All HTTP(S) browser requests, including redirects and subresources, are
+    checked against the shared SSRF guard. Playwright remains an optional
+    dependency.
     """
     allowed, reason = await validate_public_url(url)
     if not allowed:
         return {"error": f"Blocked URL: {reason}", "status": 0, "url": url}
 
-    from core.agent_tools import _tool_fetch_rendered_url
-    return await _tool_fetch_rendered_url(
-        url=url, selector=selector, wait_for=wait_for,
-        timeout=timeout, return_html=return_html, stealth=stealth,
-    )
+    try:
+        from playwright.async_api import async_playwright
+    except ImportError:
+        return {
+            "error": (
+                "Playwright is not installed. Install optional dependency "
+                "'playwright' and run 'playwright install chromium'."
+            ),
+            "status": 0,
+            "url": url,
+        }
+
+    timeout = max(3, min(int(timeout), 45))
+    timeout_ms = timeout * 1000
+    validation_cache: dict[str, tuple[bool, str | None]] = {}
+
+    try:
+        async with async_playwright() as pw:
+            browser = await pw.chromium.launch(headless=True)
+            context = await browser.new_context(
+                user_agent=_DEFAULT_UA,
+                ignore_https_errors=False,
+            )
+            page = await context.new_page()
+
+            async def _guard_route(route, request):
+                req_allowed, _ = await _validate_browser_request_url(
+                    request.url,
+                    validation_cache,
+                )
+                if req_allowed:
+                    await route.continue_()
+                else:
+                    await route.abort("blockedbyclient")
+
+            await page.route("**/*", _guard_route)
+
+            if stealth:
+                try:
+                    from playwright_stealth import stealth_async
+                    await stealth_async(page)
+                except ImportError:
+                    pass
+                except Exception:
+                    pass
+
+            response = await page.goto(
+                url,
+                wait_until="domcontentloaded",
+                timeout=timeout_ms,
+            )
+
+            if wait_for:
+                await page.wait_for_selector(wait_for, timeout=timeout_ms)
+
+            if selector:
+                elements = await page.locator(selector).all_inner_texts()
+                text = "\n".join(elements)
+            else:
+                text = await page.locator("body").inner_text()
+
+            title = await page.title()
+            final_url = page.url
+            status = response.status if response is not None else 0
+
+            max_text = 20_000
+            text_truncated = len(text) > max_text
+            if text_truncated:
+                text = text[:max_text]
+
+            result = {
+                "status": status,
+                "url": final_url,
+                "title": title,
+                "text": text,
+                "text_truncated": text_truncated,
+                "stealth": bool(stealth),
+            }
+
+            if return_html:
+                html = await page.content()
+                max_html = 100_000
+                html_truncated = len(html) > max_html
+                if html_truncated:
+                    html = html[:max_html]
+                result["html"] = html
+                result["html_truncated"] = html_truncated
+
+            await context.close()
+            await browser.close()
+            return result
+    except Exception as exc:
+        return {
+            "error": f"{type(exc).__name__}: {exc}",
+            "status": 0,
+            "url": url,
+        }
