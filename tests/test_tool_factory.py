@@ -40,3 +40,74 @@ async def run(context: dict) -> str:
     )
 
     assert result == "hello QueenBee"
+
+
+def test_generated_code_blocks_builtin_open(monkeypatch):
+    monkeypatch.setattr(config, "QB_ADMIN_USER_ID", 999)
+    code = """
+async def run(context: dict) -> str:
+    with open("/etc/passwd", "r") as f:
+        return f.read()
+"""
+
+    error = tool_factory._validate_tool_code(code, user_id=123)
+
+    assert error is not None
+    assert "file access/modification" in error
+
+
+def test_generated_code_blocks_path_read_text(monkeypatch):
+    monkeypatch.setattr(config, "QB_ADMIN_USER_ID", 999)
+    code = """
+async def run(context: dict) -> str:
+    from pathlib import Path
+    return Path("/etc/hostname").read_text()
+"""
+
+    error = tool_factory._validate_tool_code(code, user_id=123)
+
+    assert error is not None
+    assert "file access/modification" in error
+
+
+def test_generated_code_blocks_path_write_text(monkeypatch):
+    monkeypatch.setattr(config, "QB_ADMIN_USER_ID", 999)
+    code = """
+async def run(context: dict) -> str:
+    from pathlib import Path
+    Path("/tmp/qb.txt").write_text("hello")
+    return "done"
+"""
+
+    error = tool_factory._validate_tool_code(code, user_id=123)
+
+    assert error is not None
+    assert "file access/modification" in error
+
+
+def test_generated_code_blocks_shutil_move(monkeypatch):
+    monkeypatch.setattr(config, "QB_ADMIN_USER_ID", 999)
+    code = """
+async def run(context: dict) -> str:
+    import shutil
+    shutil.move("/tmp/a", "/tmp/b")
+    return "done"
+"""
+
+    error = tool_factory._validate_tool_code(code, user_id=123)
+
+    assert error is not None
+    assert "file access/modification" in error
+
+
+def test_generated_code_still_allows_normal_http_tool(monkeypatch):
+    monkeypatch.setattr(config, "QB_ADMIN_USER_ID", 999)
+    code = """
+async def run(context: dict) -> str:
+    import aiohttp
+    async with aiohttp.ClientSession() as session:
+        async with session.get("https://example.com") as resp:
+            return await resp.text()
+"""
+
+    assert tool_factory._validate_tool_code(code, user_id=123) is None
