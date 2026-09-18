@@ -18,6 +18,7 @@ Each tool exposes exactly one function:
 import importlib.util
 import json
 import logging
+import os
 import re
 import sys
 from dataclasses import asdict, dataclass
@@ -490,11 +491,46 @@ def get_tool_code(name: str) -> str | None:
 
 
 def save_tool(meta: ToolMeta, code: str) -> None:
+    """Persist tool code + manifest with staged writes and rollback on failure."""
     d = _tools_dir()
-    (d / f"{meta.name}.py").write_text(code, encoding="utf-8")
-    (d / f"{meta.name}.json").write_text(
-        json.dumps(asdict(meta), indent=2, ensure_ascii=False), encoding="utf-8"
-    )
+    py_path = d / f"{meta.name}.py"
+    json_path = d / f"{meta.name}.json"
+    py_tmp = d / f".{meta.name}.py.tmp"
+    json_tmp = d / f".{meta.name}.json.tmp"
+
+    old_py = py_path.read_bytes() if py_path.exists() else None
+    old_json = json_path.read_bytes() if json_path.exists() else None
+
+    try:
+        py_tmp.write_text(code, encoding="utf-8")
+        json_tmp.write_text(
+            json.dumps(asdict(meta), indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+
+        # Replace only after both staged files were written successfully.
+        os.replace(py_tmp, py_path)
+        os.replace(json_tmp, json_path)
+    except Exception:
+        # Best-effort rollback to the exact previous pair.
+        try:
+            if old_py is None:
+                py_path.unlink(missing_ok=True)
+            else:
+                py_path.write_bytes(old_py)
+
+            if old_json is None:
+                json_path.unlink(missing_ok=True)
+            else:
+                json_path.write_bytes(old_json)
+        finally:
+            py_tmp.unlink(missing_ok=True)
+            json_tmp.unlink(missing_ok=True)
+        raise
+    else:
+        py_tmp.unlink(missing_ok=True)
+        json_tmp.unlink(missing_ok=True)
+
     logger.info("Tool '%s' saved to %s/", meta.name, d)
 
 

@@ -855,7 +855,7 @@ async def edittool_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         return
 
     if query.data == "qb_edit_save":
-        pending = context.user_data.pop("pending_tool_edit", None)
+        pending = context.user_data.get("pending_tool_edit")
         if not pending:
             await query.edit_message_text("⚠️ No pending edit found.")
             return
@@ -866,6 +866,7 @@ async def edittool_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         code = pending["code"]
         try:
             save_tool(meta, code)
+            context.user_data.pop("pending_tool_edit", None)
             await query.edit_message_text(
                 f"✅ Tool `{meta.name}` updated to v{meta.version}.",
                 parse_mode="Markdown",
