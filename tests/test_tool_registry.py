@@ -103,3 +103,62 @@ def test_dispatch_returns_result_and_converts_exceptions_to_errors():
     assert result == {"args": {"x": 1}, "user_id": 42}
     assert error == {"error": "boom"}
     assert missing == {"error": "Unknown tool: missing"}
+
+
+def test_dispatch_enforces_rbac_for_non_public_tools(monkeypatch):
+    monkeypatch.setattr(
+        config,
+        "ROLE_PERMISSIONS",
+        {
+            "public": ["public"],
+            "finance": ["public", "finance.*"],
+        },
+    )
+    monkeypatch.setattr(config, "QB_ADMIN_USER_ID", 999)
+    monkeypatch.setattr(
+        tool_registry,
+        "_user_roles",
+        lambda user_id: ["finance"] if user_id == 123 else ["public"],
+    )
+
+    tool_registry.register(
+        "finance_tool",
+        schema={"type": "function", "function": {"name": "finance_tool"}},
+        handler=_ok_handler,
+        permission="finance.read",
+    )
+
+    allowed = asyncio.run(
+        tool_registry.dispatch("finance_tool", {}, {"user_id": 123})
+    )
+    denied = asyncio.run(
+        tool_registry.dispatch("finance_tool", {}, {"user_id": 456})
+    )
+    anonymous = asyncio.run(tool_registry.dispatch("finance_tool", {}))
+    admin = asyncio.run(
+        tool_registry.dispatch("finance_tool", {}, {"user_id": 999})
+    )
+
+    assert allowed["user_id"] == 123
+    assert denied == {
+        "error": "Permission denied: finance_tool requires finance.read"
+    }
+    assert anonymous == {
+        "error": "Permission denied: finance_tool requires finance.read"
+    }
+    assert admin["user_id"] == 999
+
+
+def test_dispatch_blocks_unavailable_tools():
+    tool_registry.register(
+        "offline",
+        schema={"type": "function", "function": {"name": "offline"}},
+        handler=_ok_handler,
+        available_check=lambda: False,
+    )
+
+    result = asyncio.run(
+        tool_registry.dispatch("offline", {}, {"user_id": 42})
+    )
+
+    assert result == {"error": "Tool unavailable: offline"}
