@@ -693,6 +693,7 @@ async def edit_tool(
         created_by=old_meta_data.get("created_by", 0),
         status="approved" if (QB_ADMIN_USER_ID and user_id == QB_ADMIN_USER_ID) else "pending_review",
         help_example=old_meta_data.get("help_example", ""),
+        permission=(old_meta_data.get("permission") or "public").strip().lower(),
     )
     return meta, code
 
