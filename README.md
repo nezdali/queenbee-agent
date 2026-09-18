@@ -1,66 +1,114 @@
-# queenbee-agent
+# QueenBee Agent
 
-**A self-extending LLM agent on Telegram, with a runtime, security-reviewed
-tool factory.**
+**A self-extending AI agent for Telegram. Describe a new tool in plain English; QueenBee writes it, security-reviews it, and installs it at runtime.**
 
-Most "Telegram + GPT" bots are a thin wrapper: a message goes in, an LLM
-reply comes out. `queenbee-agent` is structurally different. The bot is a
-full agent loop on top of any OpenAI-compatible model, with a tool registry
-the model can call. The unusual part is that the **registry is not fixed**:
-end users can describe a new capability in plain English (`>> describe what
-the tool should do`) and the bot will write the Python code, run it through
-a forbidden-pattern + LLM security review, hand it to the admin for
-Approve/Reject, persist it as a first-class tool, and make it callable from
-the very next turn.
+Most "Telegram + GPT" bots are a thin wrapper:
 
-## What it does
+```text
+message → LLM → response
+```
 
-- **LLM agent loop on Telegram** — per-user conversation history, streaming
-  responses, tool-calling, photo input, group-chat `@mention` handling.
-- **OpenAI-compatible** — works with OpenAI, Anthropic Claude (via OpenAI
-  compat), Google Gemini, Mistral, Groq, Together, OpenRouter, or a local
-  Ollama instance. Pick the model with `LLM_MODEL` / `OPENAI_BASE_URL`.
-- **Queen Bee tool factory** — runtime generation of new tools from a plain
-  English description:
-  1. Forbidden-intent regex check on the description (file listing, shell
-     exec, secret extraction — bypassed for admin).
-  2. The codex model writes an `async def run(context) -> str` Python module
-     plus a JSON manifest with name / description / trigger keywords /
-     required permission.
-  3. The generated code is scanned for forbidden patterns
-     (`subprocess`, `os.system`, `eval`, file deletion, …).
-  4. For non-admin users, an async LLM **security review** runs and admin
-     gets Approve / Reject buttons.
-  5. Approved tools land in `tools/<name>.py` and are registered into the
-     RBAC-aware tool registry, callable from the next turn.
-- **Four ways to dispatch a tool**
-  1. **LLM function calling** — the model decides during chat.
-  2. **`/runtool <name> [args…]`** — explicit invocation.
-  3. **Trigger-keyword auto-dispatch** — first word of a user message matches
-     a tool's `trigger_keywords`.
-  4. **Smart-intent dispatch** — if the message doesn't match a keyword but
-     looks like a tool request, the bot proposes a tool with
-     confirm/decline buttons.
-- **Per-user RBAC** — every tool has a `permission` label (`public`,
-  `finance`, `email`, `admin`, …). Users only see and run tools their role
-  allows. Admin sees everything.
-- **Scheduled jobs / monitors** — tools can run on a cron-like schedule
-  (APScheduler) and push results back to the user.
-- **Iteration loop** — `/qbtest`, `/qbfix <instruction>`, `/qbsave`,
-  `/qbdiscard`, `/edittool <name> <instruction>` for refining a tool
-  without leaving Telegram.
-- **Operational hardening** — Azure Key Vault loader for secrets (AWS
-  Secrets Manager / GCP Secret Manager recipes included), per-user rate
-  limiting on tool generation, output sanitiser, group-chat allow-list.
+QueenBee adds an agent and tool layer:
 
-## Ships with ~30 example tools
+```text
+message → LLM → tool selection → execution → response
+```
 
-CoinGecko BTC price, weather, Estonia fuel / alcohol / cosmetics prices,
-Amazon.de search, Google Shopping search, Booking.com / IKEA / JYSK
-scrapers, Spotify lookup, Duolingo profile stats, snooker / FIFA / football
-status, Euribor rate, Cozytouch / eWeLink / Huum smart-home control,
-yt-dlp media downloader, TLDR summariser, and more — all in `tools/`,
-each a self-contained `async def run(context) -> str` module.
+The unusual part is that the tool registry is **not fixed**. Users can describe a new capability in plain English, and QueenBee can generate the Python implementation, run security checks, route it through approval, persist it, and make it callable from the next conversation turn.
+
+## Why QueenBee?
+
+The interesting part is not the Telegram interface. The agent can extend its own capabilities while it is running.
+
+For example:
+
+```text
+You:
+>> create a tool that gets the current Euribor rate
+
+QueenBee:
+Generating tool...
+✓ Code generated
+✓ Static security checks passed
+✓ Security review passed
+✓ Waiting for admin approval
+
+Admin:
+[ Approve ] [ Reject ]
+
+QueenBee:
+✓ Tool "euribor_rate" installed
+
+You:
+What's the current Euribor?
+
+QueenBee:
+<runs euribor_rate automatically>
+```
+
+A tool request can go through this flow:
+
+1. Validate the requested capability.
+2. Ask the LLM to generate an `async def run(context) -> str` Python module.
+3. Scan the generated code for forbidden operations.
+4. Run an additional LLM security review for non-admin users.
+5. Send the tool to an administrator for approval.
+6. Persist the approved module under `tools/`.
+7. Register it in the RBAC-aware tool registry.
+8. Make it available without restarting the bot.
+
+## Features
+
+- **Runtime tool generation** — create new capabilities from natural-language descriptions.
+- **LLM function calling** — the model decides when a tool should be used.
+- **Security review** — static checks + LLM review + admin approval for generated tools.
+- **Per-user RBAC** — expose tools based on roles and permissions.
+- **Multiple LLM providers** — works with OpenAI-compatible APIs and local models.
+- **Local model support** — use Ollama or another OpenAI-compatible endpoint.
+- **Scheduled monitors** — execute tools periodically and push results back to Telegram.
+- **Tool iteration** — test, debug, fix, edit, and save generated tools from Telegram.
+- **Streaming responses, image input, and group-chat support.**
+- **~30 example tools included.**
+
+## Tool dispatch
+
+QueenBee can invoke tools in four ways:
+
+1. **LLM function calling** — the model selects the appropriate tool.
+2. **Explicit command** — `/runtool <name> [args...]`.
+3. **Keyword dispatch** — the first word of a message matches a tool's `trigger_keywords`.
+4. **Intent dispatch** — QueenBee proposes a likely tool and asks the user to confirm.
+
+## Included tools
+
+The repository contains around 30 example tools demonstrating external APIs, web data, smart-home control, and personal automation, including:
+
+- CoinGecko / Bitcoin price
+- Euribor
+- Weather
+- Estonia fuel, alcohol, and cosmetics prices
+- Amazon.de search
+- Google Shopping search
+- Booking.com
+- Spotify
+- Duolingo
+- Strava
+- Football / snooker data
+- eWeLink smart-home control
+- Huum
+- Cozytouch
+- yt-dlp
+- TLDR summarization
+
+Each tool is a small self-contained Python module exposing:
+
+```python
+async def run(context: dict) -> str:
+    ...
+```
+
+> [!WARNING]
+> Generated tools currently execute **in-process and are not sandboxed**. QueenBee applies static checks, LLM security review, RBAC, and administrator approval, but generated code should still be treated as potentially unsafe. See [Security](#security) before exposing tool generation to untrusted users.
 
 ---
 
@@ -112,8 +160,8 @@ Once the VM is up:
 ```bash
 ssh user@<vm-ip>
 sudo apt update && sudo apt install -y python3.11 python3.11-venv git
-git clone <this repo>
-cd telegram_chatbot
+git clone https://github.com/nezdali/queenbee-agent.git
+cd queenbee-agent
 python3.11 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -122,19 +170,19 @@ python bot.py                       # smoke-test
 ```
 
 To keep the bot running after you log out, create a systemd unit
-(`/etc/systemd/system/telegram-bot.service`):
+(`/etc/systemd/system/queenbee-agent.service`):
 
 ```ini
 [Unit]
-Description=Telegram Chatbot
+Description=QueenBee Agent
 After=network.target
 
 [Service]
 Type=simple
 User=youruser
-WorkingDirectory=/home/youruser/telegram_chatbot
-EnvironmentFile=/home/youruser/telegram_chatbot/.env
-ExecStart=/home/youruser/telegram_chatbot/.venv/bin/python bot.py
+WorkingDirectory=/home/youruser/queenbee-agent
+EnvironmentFile=/home/youruser/queenbee-agent/.env
+ExecStart=/home/youruser/queenbee-agent/.venv/bin/python bot.py
 Restart=always
 RestartSec=5
 
@@ -144,8 +192,8 @@ WantedBy=multi-user.target
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable --now telegram-bot
-journalctl -u telegram-bot -f      # follow logs
+sudo systemctl enable --now queenbee-agent
+journalctl -u queenbee-agent -f      # follow logs
 ```
 
 ---
@@ -153,8 +201,8 @@ journalctl -u telegram-bot -f      # follow logs
 ## Quick start
 
 ```bash
-git clone <this repo>
-cd telegram_chatbot
+git clone https://github.com/nezdali/queenbee-agent.git
+cd queenbee-agent
 python -m venv .venv
 source .venv/bin/activate          # or .venv\Scripts\activate on Windows
 pip install -r requirements.txt
