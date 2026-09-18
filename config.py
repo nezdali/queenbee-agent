@@ -142,7 +142,7 @@ MAX_HISTORY: int = HISTORY_DEPTH  # alias used by core.conversation
 # Optional plaintext prompt logging for local diagnostics/daily reports.
 # Disabled by default because prompts may contain sensitive user content.
 PROMPT_LOG_ENABLED: bool = os.getenv(
-    "PROMPT_LOG_ENABLED", ""
+    "PROMPT_LOG_ENABLED", "true"
 ).strip().lower() in {"1", "true", "yes", "on"}
 
 # ---------------------------------------------------------------------------
